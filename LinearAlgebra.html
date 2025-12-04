@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Gauss / Gauss-Jordan / Inverse</title>
+    <style>
+      body {
+        /* الشكل العام*/
+        background: #0a2c60;
+        color: #ffffff;
+        padding: 20px;
+      }
+      h1 {
+        /*شكل العنوان*/
+        font-size: 50px;
+        text-align: center;
+        margin-bottom: 25px;
+      }
+      .card {
+        /* ده الوعاء الأساسي اللي شايل كل المحتوى (الكنترولز + المصفوفة + النتائج).*/
+        background: #4fa4de;
+        padding: 15px;
+        border: 5px solid #000000;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      input[type="number"] {
+        width: 70px;
+        padding: 4px;
+        text-align: center;
+      }
+      button {
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      table {
+        margin: 10px auto;
+      }
+      td {
+        padding: 3px;
+      }
+      .split-box {
+        border: 5px solid #737c80;
+        padding: 20px;
+        background: #000000;
+        margin-bottom: 15px;
+      }
+      .split-title {
+        font-weight: bold;
+        margin-bottom: 6px;
+        text-align: center;
+      }
+      .step {
+        margin-bottom: 6px;
+      }
+      .step-title {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      pre {
+        background: #454343;
+        padding: 6px;
+        white-space: pre;
+      }
+      .solution-block {
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Matrix Solver</h1>
+
+    <div class="card">
+      <div class="controls">
+        <label>Equations:</label>
+        <input type="number" id="eqCount" value="2" min="1" max="10" />
+        <label>Variables:</label>
+        <input type="number" id="varCount" value="2" min="1" max="10" />
+        <button onclick="createMatrix()">Create Matrix</button>
+        <button id="solveBtn" onclick="solve()" disabled>Solve</button>
+        <button onclick="clearAll()">Clear</button>
+      </div>
+
+      <div id="matrixContainer"></div>
+
+      <div class="split-container">
+        <div class="split-box">
+          <div class="split-title">Gauss Elimination</div>
+          <div id="gaussOutput"></div>
+        </div>
+        <div class="split-box">
+          <div class="split-title">Gauss–Jordan</div>
+          <div id="jordanOutput"></div>
+        </div>
+      </div>
+
+      <div class="split-box" style="margin-top: 10px">
+        <div class="split-title">Inverse of A</div>
+        <pre id="inverseOutput"></pre>
+      </div>
+    </div>
+
+    <script>
+      const matrixContainer = document.getElementById("matrixContainer");
+      const solveBtn = document.getElementById("solveBtn");
+      const gaussOutput = document.getElementById("gaussOutput");
+      const jordanOutput = document.getElementById("jordanOutput");
+      const inverseOutput = document.getElementById("inverseOutput");
+      const EPS = 1e-12;
+
+      function createMatrix() {
+        matrixContainer.innerHTML = "";
+        gaussOutput.innerHTML = "";
+        jordanOutput.innerHTML = "";
+        inverseOutput.textContent = "";
+        const eq = +document.getElementById("eqCount").value;
+        const vars = +document.getElementById("varCount").value;
+
+        const tbl = document.createElement("table");
+        for (let i = 0; i < eq; i++) {
+          const tr = document.createElement("tr");
+          for (let j = 0; j < vars; j++) {
+            const td = document.createElement("td");
+            const inp = document.createElement("input");
+            inp.type = "number";
+            inp.step = "any";
+            inp.className = "matrix-cell";
+            inp.id = `a_${i}_${j}`;
+            inp.placeholder = `a${i + 1}${j + 1}`;
+            td.appendChild(inp);
+            tr.appendChild(td);
+          }
+          const tdBar = document.createElement("td");
+          tdBar.textContent = "| ";
+          const rhs = document.createElement("input");
+          rhs.type = "number";
+          rhs.step = "any";
+          rhs.className = "matrix-cell";
+          rhs.id = `b_${i}`;
+          rhs.placeholder = `b${i + 1}`;
+          tdBar.appendChild(rhs);
+          tr.appendChild(tdBar);
+          tbl.appendChild(tr);
+        }
+        matrixContainer.appendChild(tbl);
+        solveBtn.disabled = false;
+      }
+
+      function clearAll() {
+        matrixContainer.innerHTML = "";
+        gaussOutput.innerHTML = "";
+        jordanOutput.innerHTML = "";
+        inverseOutput.textContent = "";
+        solveBtn.disabled = true;
+      }
+
+      function readMatrix() {
+        const eq = +document.getElementById("eqCount").value;
+        const vars = +document.getElementById("varCount").value;
+        const M = [];
+        for (let i = 0; i < eq; i++) {
+          const row = [];
+          for (let j = 0; j < vars; j++) {
+            const v = parseFloat(document.getElementById(`a_${i}_${j}`).value);
+            if (isNaN(v)) return null;
+            row.push(v);
+          }
+          const bv = parseFloat(document.getElementById(`b_${i}`).value);
+          if (isNaN(bv)) return null;
+          row.push(bv);
+          M.push(row);
+        }
+        return M;
+      }
+
+      function clone(A) {
+        return A.map((r) => r.slice());
+      }
+
+      function fmt(x) {
+        if (Math.abs(x) < EPS) return 0;
+        if (Math.abs(x - Math.round(x)) < 1e-9) return Math.round(x);
+        return +x.toFixed(6);
+      }
+
+      function matrixToString(M) {
+        if (!M) return "";
+        let s = "";
+        const rows = M.length,
+          cols = M[0].length;
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < cols; j++) {
+            s += String(fmt(M[i][j])).padStart(8, " ") + " ";
+          }
+          s += "\n";
+        }
+        return s;
+      }
+
+      function addStep(container, title, mat) {
+        const div = document.createElement("div");
+        div.className = "step";
+        const t = document.createElement("div");
+        t.className = "step-title";
+        t.textContent = title;
+        const pre = document.createElement("pre");
+        pre.textContent = matrixToString(mat);
+        div.appendChild(t);
+        div.appendChild(pre);
+        container.appendChild(div);
+      }
+
+      // ---------- Gaussian elimination + steps ----------
+      function gaussian(A) {
+        let M = clone(A);
+        const rows = M.length,
+          cols = M[0].length;
+        let r = 0;
+        const steps = [];
+
+        for (let c = 0; c < cols - 1 && r < rows; c++) {
+          let piv = r;
+          for (let i = r; i < rows; i++) {
+            if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
+          }
+          if (Math.abs(M[piv][c]) < EPS) continue;
+
+          if (piv !== r) {
+            [M[piv], M[r]] = [M[r], M[piv]];
+            steps.push({
+              title: `Swap R${piv + 1} ↔ R${r + 1}`,
+              mat: clone(M),
+            });
+          }
+
+          const pivotVal = M[r][c];
+          for (let j = c; j < cols; j++) M[r][j] /= pivotVal;
+          steps.push({
+            title: `R${r + 1} = R${r + 1} / ${pivotVal}`,
+            mat: clone(M),
+          });
+
+          for (let i = r + 1; i < rows; i++) {
+            const f = M[i][c];
+            if (Math.abs(f) < EPS) continue;
+            for (let j = c; j < cols; j++) {
+              M[i][j] -= f * M[r][j];
+            }
+            steps.push({
+              title: `R${i + 1} = R${i + 1} - (${f}) R${r + 1}`,
+              mat: clone(M),
+            });
+          }
+          r++;
+        }
+        return { M, steps };
+      }
+
+      function backSubstitution(U) {
+        const rows = U.length;
+        const cols = U[0].length;
+        const n = cols - 1;
+        const x = new Array(n).fill(0);
+
+        for (let i = n - 1; i >= 0; i--) {
+          let sum = 0;
+          for (let j = i + 1; j < n; j++) {
+            sum += U[i][j] * x[j];
+          }
+          x[i] = (U[i][n] - sum) / U[i][i];
+        }
+        return x;
+      }
+
+      // ---------- Gauss–Jordan + steps ----------
+      function gaussJordan(A) {
+        let M = clone(A);
+        const rows = M.length,
+          cols = M[0].length;
+        let r = 0;
+        const steps = [];
+
+        for (let c = 0; c < cols - 1 && r < rows; c++) {
+          let piv = r;
+          for (let i = r; i < rows; i++) {
+            if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
+          }
+          if (Math.abs(M[piv][c]) < EPS) continue;
+
+          if (piv !== r) {
+            [M[piv], M[r]] = [M[r], M[piv]];
+            steps.push({
+              title: `Swap R${piv + 1} ↔ R${r + 1}`,
+              mat: clone(M),
+            });
+          }
+
+          const pivotVal = M[r][c];
+          for (let j = 0; j < cols; j++) M[r][j] /= pivotVal;
+          steps.push({
+            title: `R${r + 1} = R${r + 1} / ${pivotVal}`,
+            mat: clone(M),
+          });
+
+          for (let i = 0; i < rows; i++) {
+            if (i === r) continue;
+            const f = M[i][c];
+            if (Math.abs(f) < EPS) continue;
+            for (let j = 0; j < cols; j++) {
+              M[i][j] -= f * M[r][j];
+            }
+            steps.push({
+              title: `R${i + 1} = R${i + 1} - (${f}) R${r + 1}`,
+              mat: clone(M),
+            });
+          }
+          r++;
+        }
+        return { M, steps };
+      }
+
+      function readSolutionFromRREF(M) {
+        const rows = M.length;
+        const cols = M[0].length;
+        const n = cols - 1;
+        const x = new Array(n).fill(0);
+        for (let i = 0; i < n && i < rows; i++) {
+          x[i] = M[i][n];
+        }
+        return x;
+      }
+
+      // ---------- Inverse of coefficient matrix ----------
+      function inverseMatrix(Acoef) {
+        const n = Acoef.length;
+        // build [A | I]
+        let M = new Array(n);
+        for (let i = 0; i < n; i++) {
+          M[i] = new Array(2 * n);
+          for (let j = 0; j < n; j++) M[i][j] = Acoef[i][j];
+          for (let j = 0; j < n; j++) M[i][j + n] = i === j ? 1 : 0;
+        }
+
+        let r = 0;
+        for (let c = 0; c < n && r < n; c++) {
+          let piv = r;
+          for (let i = r; i < n; i++) {
+            if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
+          }
+          if (Math.abs(M[piv][c]) < EPS) return null; // singular
+
+          if (piv !== r) {
+            [M[piv], M[r]] = [M[r], M[piv]];
+          }
+
+          const pivotVal = M[r][c];
+          for (let j = 0; j < 2 * n; j++) M[r][j] /= pivotVal;
+
+          for (let i = 0; i < n; i++) {
+            if (i === r) continue;
+            const f = M[i][c];
+            for (let j = 0; j < 2 * n; j++) {
+              M[i][j] -= f * M[r][j];
+            }
+          }
+          r++;
+        }
+
+        const inv = new Array(n);
+        for (let i = 0; i < n; i++) {
+          inv[i] = M[i].slice(n, 2 * n);
+        }
+        return inv;
+      }
+
+      // ---------- Solve ----------
+      function solve() {
+        gaussOutput.innerHTML = "";
+        jordanOutput.innerHTML = "";
+        inverseOutput.textContent = "";
+
+        const A = readMatrix();
+        if (!A) {
+          alert("من فضلك املئي كل الخانات بأرقام.");
+          return;
+        }
+
+        const eq = A.length;
+        const vars = A[0].length - 1;
+        if (eq !== vars) {
+          alert(
+            "الـ inverse محتاج مصفوفة مربعة (نفس عدد المعادلات والمتغيرات)."
+          );
+        }
+
+        // ---- Gauss ----
+        const g = gaussian(A);
+        g.steps.forEach((s) => addStep(gaussOutput, s.title, s.mat));
+        const gSol = backSubstitution(g.M);
+        const gSolDiv = document.createElement("div");
+        gSolDiv.className = "solution-block";
+        gSolDiv.innerHTML =
+          "Solution:<br>" +
+          gSol.map((v, i) => `x${i + 1} = ${fmt(v)}`).join("<br>");
+        gaussOutput.appendChild(gSolDiv);
+
+        // ---- Gauss–Jordan ----
+        const j = gaussJordan(A);
+        j.steps.forEach((s) => addStep(jordanOutput, s.title, s.mat));
+        const jSol = readSolutionFromRREF(j.M);
+        const jSolDiv = document.createElement("div");
+        jSolDiv.className = "solution-block";
+        jSolDiv.innerHTML =
+          "Solution:<br>" +
+          jSol.map((v, i) => `x${i + 1} = ${fmt(v)}`).join("<br>");
+        jordanOutput.appendChild(jSolDiv);
+
+        // ---- Inverse of A ----
+        if (eq === vars) {
+          const Acoef = A.map((row) => row.slice(0, vars));
+          const inv = inverseMatrix(Acoef);
+          if (!inv) {
+            inverseOutput.textContent = "Matrix has no inverse.";
+          } else {
+            inverseOutput.textContent = matrixToString(inv);
+          }
+        } else {
+          inverseOutput.textContent =
+            "No inverse (matrix is not square: equations != variables).";
+        }
+      }
+    </script>
+  </body>
+</html>

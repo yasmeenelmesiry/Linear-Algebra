@@ -71,6 +71,7 @@
       }
     </style>
   </head>
+
   <body>
     <h1>Matrix Solver</h1>
 
@@ -109,16 +110,17 @@
       const solveBtn = document.getElementById("solveBtn");
       const gaussOutput = document.getElementById("gaussOutput");
       const jordanOutput = document.getElementById("jordanOutput");
-      const inverseOutput = document.getElementById("inverseOutput");
       const inverseSteps = document.getElementById("inverseSteps");
+      const inverseOutput = document.getElementById("inverseOutput");
       const EPS = 1e-12;
 
       function createMatrix() {
         matrixContainer.innerHTML = "";
         gaussOutput.innerHTML = "";
         jordanOutput.innerHTML = "";
-        inverseOutput.textContent = "";
         inverseSteps.innerHTML = "";
+        inverseOutput.textContent = "";
+
         const eq = +document.getElementById("eqCount").value;
         const vars = +document.getElementById("varCount").value;
 
@@ -136,16 +138,16 @@
             td.appendChild(inp);
             tr.appendChild(td);
           }
-          const tdBar = document.createElement("td");
-          tdBar.textContent = "| ";
+          const rhsCell = document.createElement("td");
+          rhsCell.textContent = "| ";
           const rhs = document.createElement("input");
           rhs.type = "number";
           rhs.step = "any";
           rhs.className = "matrix-cell";
           rhs.id = `b_${i}`;
           rhs.placeholder = `b${i + 1}`;
-          tdBar.appendChild(rhs);
-          tr.appendChild(tdBar);
+          rhsCell.appendChild(rhs);
+          tr.appendChild(rhsCell);
           tbl.appendChild(tr);
         }
         matrixContainer.appendChild(tbl);
@@ -156,8 +158,8 @@
         matrixContainer.innerHTML = "";
         gaussOutput.innerHTML = "";
         jordanOutput.innerHTML = "";
-        inverseOutput.textContent = "";
         inverseSteps.innerHTML = "";
+        inverseOutput.textContent = "";
         solveBtn.disabled = true;
       }
 
@@ -193,10 +195,8 @@
       function matrixToString(M) {
         if (!M) return "";
         let s = "";
-        const rows = M.length,
-          cols = M[0].length;
-        for (let i = 0; i < rows; i++) {
-          for (let j = 0; j < cols; j++) {
+        for (let i = 0; i < M.length; i++) {
+          for (let j = 0; j < M[0].length; j++) {
             s += String(fmt(M[i][j])).padStart(8, " ") + " ";
           }
           s += "\n";
@@ -217,20 +217,18 @@
         container.appendChild(div);
       }
 
+      // Gaussian elimination
       function gaussian(A) {
         let M = clone(A);
-        const rows = M.length,
-          cols = M[0].length;
-        let r = 0;
-        const steps = [];
-
+        let rows = M.length,
+          cols = M[0].length,
+          r = 0;
+        let steps = [];
         for (let c = 0; c < cols - 1 && r < rows; c++) {
           let piv = r;
-          for (let i = r; i < rows; i++) {
+          for (let i = r; i < rows; i++)
             if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
-          }
           if (Math.abs(M[piv][c]) < EPS) continue;
-
           if (piv !== r) {
             [M[piv], M[r]] = [M[r], M[piv]];
             steps.push({
@@ -238,22 +236,18 @@
               mat: clone(M),
             });
           }
-
-          const pivotVal = M[r][c];
-          for (let j = c; j < cols; j++) M[r][j] /= pivotVal;
+          let pv = M[r][c];
+          for (let j = c; j < cols; j++) M[r][j] /= pv;
           steps.push({
-            title: `R${r + 1} = R${r + 1} / ${pivotVal}`,
+            title: `R${r + 1}=R${r + 1}/${fmt(pv)}`,
             mat: clone(M),
           });
-
           for (let i = r + 1; i < rows; i++) {
-            const f = M[i][c];
+            let f = M[i][c];
             if (Math.abs(f) < EPS) continue;
-            for (let j = c; j < cols; j++) {
-              M[i][j] -= f * M[r][j];
-            }
+            for (let j = c; j < cols; j++) M[i][j] -= f * M[r][j];
             steps.push({
-              title: `R${i + 1} = R${i + 1} - (${f}) R${r + 1}`,
+              title: `R${i + 1}=R${i + 1}-(${fmt(f)})R${r + 1}`,
               mat: clone(M),
             });
           }
@@ -263,35 +257,30 @@
       }
 
       function backSubstitution(U) {
-        const rows = U.length;
-        const cols = U[0].length;
-        const n = cols - 1;
-        const x = new Array(n).fill(0);
-
+        let rows = U.length,
+          cols = U[0].length,
+          n = cols - 1;
+        let x = new Array(n).fill(0);
         for (let i = n - 1; i >= 0; i--) {
           let sum = 0;
-          for (let j = i + 1; j < n; j++) {
-            sum += U[i][j] * x[j];
-          }
+          for (let j = i + 1; j < n; j++) sum += U[i][j] * x[j];
           x[i] = (U[i][n] - sum) / U[i][i];
         }
         return x;
       }
 
+      // Gauss–Jordan
       function gaussJordan(A) {
         let M = clone(A);
-        const rows = M.length,
-          cols = M[0].length;
-        let r = 0;
-        const steps = [];
-
+        let rows = M.length,
+          cols = M[0].length,
+          r = 0;
+        let steps = [];
         for (let c = 0; c < cols - 1 && r < rows; c++) {
           let piv = r;
-          for (let i = r; i < rows; i++) {
+          for (let i = r; i < rows; i++)
             if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
-          }
           if (Math.abs(M[piv][c]) < EPS) continue;
-
           if (piv !== r) {
             [M[piv], M[r]] = [M[r], M[piv]];
             steps.push({
@@ -299,23 +288,19 @@
               mat: clone(M),
             });
           }
-
-          const pivotVal = M[r][c];
-          for (let j = 0; j < cols; j++) M[r][j] /= pivotVal;
+          let pv = M[r][c];
+          for (let j = 0; j < cols; j++) M[r][j] /= pv;
           steps.push({
-            title: `R${r + 1} = R${r + 1} / ${pivotVal}`,
+            title: `R${r + 1}=R${r + 1}/${fmt(pv)}`,
             mat: clone(M),
           });
-
           for (let i = 0; i < rows; i++) {
             if (i === r) continue;
-            const f = M[i][c];
+            let f = M[i][c];
             if (Math.abs(f) < EPS) continue;
-            for (let j = 0; j < cols; j++) {
-              M[i][j] -= f * M[r][j];
-            }
+            for (let j = 0; j < cols; j++) M[i][j] -= f * M[r][j];
             steps.push({
-              title: `R${i + 1} = R${i + 1} - (${f}) R${r + 1}`,
+              title: `R${i + 1}=R${i + 1}-(${fmt(f)})R${r + 1}`,
               mat: clone(M),
             });
           }
@@ -324,26 +309,31 @@
         return { M, steps };
       }
 
-      // 🎯✨ Inverse with steps
-      function inverseMatrixWithSteps(Acoef) {
-        const n = Acoef.length;
+      function readSolutionFromRREF(M) {
+        let rows = M.length,
+          cols = M[0].length,
+          n = cols - 1;
+        let x = new Array(n).fill(0);
+        for (let i = 0; i < n && i < rows; i++) x[i] = M[i][n];
+        return x;
+      }
+
+      // Inverse with steps
+      function inverseMatrixSteps(Acoef) {
+        let n = Acoef.length;
         let M = new Array(n);
         for (let i = 0; i < n; i++) {
           M[i] = new Array(2 * n);
           for (let j = 0; j < n; j++) M[i][j] = Acoef[i][j];
           for (let j = 0; j < n; j++) M[i][j + n] = i === j ? 1 : 0;
         }
-
-        const steps = [];
-        let r = 0;
-
+        let steps = [],
+          r = 0;
         for (let c = 0; c < n && r < n; c++) {
           let piv = r;
-          for (let i = r; i < n; i++) {
+          for (let i = r; i < n; i++)
             if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
-          }
-          if (Math.abs(M[piv][c]) < EPS) return { steps, inv: null };
-
+          if (Math.abs(M[piv][c]) < EPS) return { inv: null, steps };
           if (piv !== r) {
             [M[piv], M[r]] = [M[r], M[piv]];
             steps.push({
@@ -351,78 +341,74 @@
               mat: clone(M),
             });
           }
-
-          const pivotVal = M[r][c];
-          for (let j = 0; j < 2 * n; j++) M[r][j] /= pivotVal;
+          let pv = M[r][c];
+          for (let j = 0; j < 2 * n; j++) M[r][j] /= pv;
           steps.push({
-            title: `R${r + 1} = R${r + 1} / ${fmt(pivotVal)}`,
+            title: `R${r + 1}=R${r + 1}/${fmt(pv)}`,
             mat: clone(M),
           });
-
           for (let i = 0; i < n; i++) {
             if (i === r) continue;
-            const f = M[i][c];
+            let f = M[i][c];
             if (Math.abs(f) < EPS) continue;
-            for (let j = 0; j < 2 * n; j++) {
-              M[i][j] -= f * M[r][j];
-            }
+            for (let j = 0; j < 2 * n; j++) M[i][j] -= f * M[r][j];
             steps.push({
-              title: `R${i + 1} = R${i + 1} - (${fmt(f)}) R${r + 1}`,
+              title: `R${i + 1}=R${i + 1}-(${fmt(f)})R${r + 1}`,
               mat: clone(M),
             });
           }
           r++;
         }
-
-        const inv = new Array(n);
-        for (let i = 0; i < n; i++) {
-          inv[i] = M[i].slice(n, 2 * n);
-        }
-
-        return { steps, inv };
+        let inv = new Array(n);
+        for (let i = 0; i < n; i++) inv[i] = M[i].slice(n, 2 * n);
+        return { inv, steps };
       }
 
       function solve() {
         gaussOutput.innerHTML = "";
         jordanOutput.innerHTML = "";
-        inverseOutput.textContent = "";
         inverseSteps.innerHTML = "";
+        inverseOutput.textContent = "";
 
-        const A = readMatrix();
+        let A = readMatrix();
         if (!A) {
-          alert("من فضلك املئي كل الخانات بأرقام.");
+          alert("املئي كل الخانات");
           return;
         }
 
-        const eq = A.length;
-        const vars = A[0].length - 1;
-        if (eq !== vars) {
-          alert("الـ inverse محتاج مصفوفة مربعة.");
-        }
-
-        const g = gaussian(A);
+        let eq = A.length,
+          vars = A[0].length - 1;
+        // ---- Gauss
+        let g = gaussian(A);
         g.steps.forEach((s) => addStep(gaussOutput, s.title, s.mat));
-        const gSol = backSubstitution(g.M);
-        gaussOutput.innerHTML += `<div class='solution-block'>Solution:<br>${gSol
-          .map((v, i) => `x${i + 1} = ${fmt(v)}`)
-          .join("<br>")}</div>`;
+        let sol = backSubstitution(g.M);
+        let gDiv = document.createElement("div");
+        gDiv.className = "solution-block";
+        gDiv.innerHTML =
+          "Solution:<br>" +
+          sol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        gaussOutput.appendChild(gDiv);
 
-        const j = gaussJordan(A);
+        // ---- Gauss-Jordan
+        let j = gaussJordan(A);
         j.steps.forEach((s) => addStep(jordanOutput, s.title, s.mat));
-        const jSol = readSolutionFromRREF(j.M);
-        jordanOutput.innerHTML += `<div class='solution-block'>Solution:<br>${jSol
-          .map((v, i) => `x${i + 1} = ${fmt(v)}`)
-          .join("<br>")}</div>`;
+        let jSol = readSolutionFromRREF(j.M);
+        let jDiv = document.createElement("div");
+        jDiv.className = "solution-block";
+        jDiv.innerHTML =
+          "Solution:<br>" +
+          jSol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        jordanOutput.appendChild(jDiv);
 
+        // ---- Inverse
         if (eq === vars) {
-          const Acoef = A.map((row) => row.slice(0, vars));
-          const result = inverseMatrixWithSteps(Acoef);
-
-          if (!result.inv) {
+          let Acoef = A.map((r) => r.slice(0, vars));
+          let res = inverseMatrixSteps(Acoef);
+          if (!res.inv) {
             inverseOutput.textContent = "Matrix has no inverse.";
           } else {
-            result.steps.forEach((s) => addStep(inverseSteps, s.title, s.mat));
-            inverseOutput.textContent = matrixToString(result.inv);
+            res.steps.forEach((s) => addStep(inverseSteps, s.title, s.mat));
+            inverseOutput.textContent = matrixToString(res.inv);
           }
         } else {
           inverseOutput.textContent = "No inverse (matrix not square)";

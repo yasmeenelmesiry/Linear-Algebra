@@ -269,7 +269,7 @@
         return x;
       }
 
-      // Gauss–Jordan
+      // Gauss-Jordan
       function gaussJordan(A) {
         let M = clone(A);
         let rows = M.length,
@@ -316,6 +316,31 @@
         let x = new Array(n).fill(0);
         for (let i = 0; i < n && i < rows; i++) x[i] = M[i][n];
         return x;
+      }
+
+      // Rank calculation
+      function rank(mat) {
+        let M = clone(mat);
+        let rows = M.length,
+          cols = M[0].length;
+        let r = 0;
+        for (let c = 0; c < cols && r < rows; c++) {
+          let piv = r;
+          for (let i = r; i < rows; i++)
+            if (Math.abs(M[i][c]) > Math.abs(M[piv][c])) piv = i;
+          if (Math.abs(M[piv][c]) < EPS) continue;
+          [M[piv], M[r]] = [M[r], M[piv]];
+          let pv = M[r][c];
+          for (let j = c; j < cols; j++) M[r][j] /= pv;
+          for (let i = 0; i < rows; i++) {
+            if (i === r) continue;
+            let f = M[i][c];
+            if (Math.abs(f) < EPS) continue;
+            for (let j = c; j < cols; j++) M[i][j] -= f * M[r][j];
+          }
+          r++;
+        }
+        return r;
       }
 
       // Inverse with steps
@@ -376,33 +401,55 @@
           return;
         }
 
-        let eq = A.length,
-          vars = A[0].length - 1;
-        // ---- Gauss
+        let eq = A.length;
+        let vars = A[0].length - 1;
+
+        let Acoef = A.map((r) => r.slice(0, vars));
+        let rankA = rank(Acoef);
+        let rankAug = rank(A);
+        let status = "unique";
+
+        if (rankA < rankAug) status = "no";
+        else if (rankA < vars) status = "infinite";
+
+        // Gauss
         let g = gaussian(A);
         g.steps.forEach((s) => addStep(gaussOutput, s.title, s.mat));
-        let sol = backSubstitution(g.M);
+
         let gDiv = document.createElement("div");
         gDiv.className = "solution-block";
-        gDiv.innerHTML =
-          "Solution:<br>" +
-          sol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        if (status === "no") {
+          gDiv.innerHTML = "Solution: No Solution";
+        } else if (status === "infinite") {
+          gDiv.innerHTML = "Solution: Infinite Solutions";
+        } else {
+          let sol = backSubstitution(g.M);
+          gDiv.innerHTML =
+            "Solution:<br>" +
+            sol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        }
         gaussOutput.appendChild(gDiv);
 
-        // ---- Gauss-Jordan
+        // Gauss-Jordan
         let j = gaussJordan(A);
         j.steps.forEach((s) => addStep(jordanOutput, s.title, s.mat));
-        let jSol = readSolutionFromRREF(j.M);
+
         let jDiv = document.createElement("div");
         jDiv.className = "solution-block";
-        jDiv.innerHTML =
-          "Solution:<br>" +
-          jSol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        if (status === "no") {
+          jDiv.innerHTML = "Solution: No Solution";
+        } else if (status === "infinite") {
+          jDiv.innerHTML = "Solution: Infinite Solutions";
+        } else {
+          let jSol = readSolutionFromRREF(j.M);
+          jDiv.innerHTML =
+            "Solution:<br>" +
+            jSol.map((v, i) => `x${i + 1}=${fmt(v)}`).join("<br>");
+        }
         jordanOutput.appendChild(jDiv);
 
-        // ---- Inverse
+        // Inverse
         if (eq === vars) {
-          let Acoef = A.map((r) => r.slice(0, vars));
           let res = inverseMatrixSteps(Acoef);
           if (!res.inv) {
             inverseOutput.textContent = "Matrix has no inverse.";
